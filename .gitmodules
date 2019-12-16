@@ -1,0 +1,18 @@
+[submodule "external/requests"]
+	path = external/requests
+	url = https://github.com/psf/requests.git
+[submodule "external/folly"]
+	path = external/folly
+	url = https://github.com/facebook/folly.git
+[submodule "external/fmt"]
+	path = external/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "external/spdlog"]
+	path = external/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "external/gzip-hpp"]
+	path = external/gzip-hpp
+	url = https://github.com/mapbox/gzip-hpp.git
+[submodule "external/json"]
+	path = external/json
+	url = https://github.com/nlohmann/json.git
