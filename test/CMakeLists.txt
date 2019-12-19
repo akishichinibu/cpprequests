@@ -12,7 +12,7 @@ FOREACH(testfile ${CPPREQUESTS_TEST})
     MESSAGE("Target `${testname}` for current test file ${testfile}. ")
 
     ADD_EXECUTABLE(${testname} ${testfile})
-    TARGET_LINK_LIBRARIES(${testname} crq libcurl fmt spdlog z)
+    TARGET_LINK_LIBRARIES(${testname} crq curl gtest fmt spdlog z)
     TARGET_COMPILE_FEATURES(${testname} PUBLIC cxx_std_17)
 
 ENDFOREACH(testfile ${CUPPER_TEST})

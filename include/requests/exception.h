@@ -10,20 +10,24 @@ namespace crq {
         // There was an ambiguous exception that occurred while handling your
         // request.
 
-        RequestException(): std::runtime_error("") {
+        RequestException() : std::runtime_error("") {
             // Initialize RequestException with `request` and `response` objects.
         }
     };
 
-    class HTTPError: RequestException {};
+    class HTTPError : RequestException {
+    };
 
-    class ConnectionError: RequestException {};
+    class ConnectionError : RequestException {
+    };
 
-    class ProxyError: ConnectionError {};
+    class ProxyError : ConnectionError {
+    };
 
-    class SSLError: ConnectionError {};
+    class SSLError : ConnectionError {
+    };
 
-    class Timeout: RequestException {
+    class Timeout : RequestException {
         // The request timed out.
         // Catching this error will catch both
         // :exc:`~requests.exceptions.ConnectTimeout` and
@@ -31,27 +35,27 @@ namespace crq {
 
     };
 
-    class ConnectTimeout: ConnectionError, Timeout {};
+    class ConnectTimeout : ConnectionError, Timeout {
+    };
 
 
-    class ReadTimeout: Timeout {
+    class ReadTimeout : Timeout {
         // The server did not send any data in the allotted amount of time.
     };
 
-    class URLRequired: RequestException {
+    class URLRequired : RequestException {
         // A valid URL is required to make a request.
     };
 
 
-    class TooManyRedirects: RequestException {
+    class TooManyRedirects : RequestException {
         // Too many redirects.
     };
 
 
-    class MissingSchema: RequestException, std::invalid_argument {
+    class MissingSchema : RequestException, std::invalid_argument {
         // The URL schema (e.g. http or https) is missing.
     };
-
 
 
 }
