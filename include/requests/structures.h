@@ -1,9 +1,5 @@
-#ifndef CPPREQUESTS_CURL_H
-#define CPPREQUESTS_CURL_H
-
-#include <cstring>
-#include <memory>
-#include <curl/curl.h>
+#ifndef CPPREQUESTS_STRUCTURES_H
+#define CPPREQUESTS_STRUCTURES_H
 
 namespace crq {
 
@@ -16,4 +12,4 @@ namespace crq {
     using HeaderMap = std::map<std::string, std::string, CaseInsensitiveComparator>;
 }
 
-#endif //CPPREQUESTS_CURL_H
+#endif //CPPREQUESTS_STRUCTURES_H

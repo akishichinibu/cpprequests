@@ -17,7 +17,13 @@ namespace crq {
 
         inline void static perform(PreparedRequest &req) {
             //执行请求
-            LIBCURL_ERROR_CHECK(curl_easy_perform(req.curl_request_ptr()));
+            const auto res = curl_easy_perform(req.curl_request_ptr());
+
+            if (res != CURLE_OK) {
+                std::string err, err_info;
+                std::tie(err, err_info) = curl::LIBCURL_CODE.at(res);
+                throw std::runtime_error(err);
+            }
         }
     };
 

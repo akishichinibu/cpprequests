@@ -10,8 +10,6 @@ INCLUDE_DIRECTORIES(external/json/include)
 INCLUDE_DIRECTORIES(external/cpp-httplib/)
 include_directories(external/googletest/googletest/include)
 
-ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/src)
-
 ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/test)
 #ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/external/curl-7.67.0)
 ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/external/fmt)

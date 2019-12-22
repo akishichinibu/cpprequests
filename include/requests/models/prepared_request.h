@@ -6,9 +6,11 @@
 #include <mutex>
 #include <curl/curl.h>
 
+#include "requests/const.h"
 #include "requests/models/request.h"
 #include "requests/models/stream.h"
-#include "requests/const.h"
+#include "requests/models/url.h"
+
 
 namespace crq {
 
@@ -24,6 +26,7 @@ namespace crq {
         StreamBuffer _buffer;
 
         CURLsListType raw_header;
+        std::string _final_url;
 
         // 处理libcurl的全局初始化
         static std::atomic<bool> global_init_status;
@@ -53,6 +56,8 @@ namespace crq {
 
         CONST_REF_PROPERTY(request, _request, Request);
 
+        CONST_REF_PROPERTY(url, _final_url, std::string);
+
         REF_PROPERTY(buffer, _buffer, StreamBuffer);
 
         inline CURL *curl_request_ptr() {
@@ -81,7 +86,13 @@ namespace crq {
             return;
         }
 
-        LIBCURL_ERROR_CHECK(curl_global_init(CURL_GLOBAL_ALL));
+        const auto res = curl_global_init(CURL_GLOBAL_ALL);
+
+        if (res != CURLE_OK) {
+            std::string err, err_info;
+            std::tie(err, err_info) = curl::LIBCURL_CODE.at(res);
+            throw std::runtime_error(err);
+        }
     }
 
     void PreparedRequest::libcurl_global_clean() {
@@ -119,7 +130,13 @@ namespace crq {
 
     template<typename T>
     void PreparedRequest::curl_set_option(CURL *request, CURLoption key, T params) {
-        LIBCURL_ERROR_CHECK(curl_easy_setopt(request, key, params));
+        const auto res = curl_easy_setopt(request, key, params);
+
+        if (res != CURLE_OK) {
+            std::string err, err_info;
+            std::tie(err, err_info) = curl::LIBCURL_CODE.at(res);
+            throw std::runtime_error(err);
+        }
     }
 
     auto PreparedRequest::build_header(const HeaderMap &header_map) -> CURLsListType {
@@ -134,10 +151,11 @@ namespace crq {
     }
 
     PreparedRequest::PreparedRequest(Request request) :
-    curl_request_handler(PreparedRequest::init_curl_request()),
-    _request(std::move(request)),
-    _buffer(StreamBuffer(this->_request)),
-    raw_header(build_header(this->_request.headers())) {
+            curl_request_handler(PreparedRequest::init_curl_request()),
+            _request(std::move(request)),
+            _buffer(StreamBuffer(this->_request)),
+            raw_header(build_header(this->_request.headers())),
+            _final_url(this->_request.url().request_uri()) {
 
         // 获取请求对象的指针
         auto curl_request = curl_request_handler.get();
@@ -148,9 +166,7 @@ namespace crq {
                         this->_request.timeout());
 
         //连接超时时长
-        curl_set_option(curl_request,
-                        CURLOPT_CONNECTTIMEOUT,
-                        this->_request.timeout());
+        curl_set_option(curl_request,CURLOPT_CONNECTTIMEOUT, this->_request.timeout());
 
         //允许重定向
         curl_set_option(curl_request,
@@ -165,71 +181,30 @@ namespace crq {
         const auto verbose = this->request().verbose();
 
         //若启用，会将头文件的信息作为数据流输出
-        curl_set_option(curl_request,
-                        CURLOPT_HEADER,
-                        static_cast<int>(verbose));
+        curl_set_option(curl_request, CURLOPT_HEADER, 1);
 
         //启用时会汇报所有的信息
-        curl_set_option(curl_request,
-                        CURLOPT_VERBOSE,
-                        static_cast<int>(verbose));
+        curl_set_option(curl_request, CURLOPT_VERBOSE, static_cast<int>(verbose));
 
-        const auto& raw_url = this->_request.url();
+        const auto &method = this->_request.method();
 
-        switch (this->_request.method()) {
-            case http::GET: {
-                curl_set_option(curl_request, CURLOPT_HTTPGET, 1);
+        if (method == "GET") {
+            curl_set_option(curl_request, CURLOPT_HTTPGET, 1);
 
-                std::string final_url;
+            //需要获取的URL地址
+            curl_set_option(curl_request, CURLOPT_URL, this->_final_url.c_str());
 
-                if (this->_request.body().empty()) {
-                    final_url = raw_url;
-                } else {
-                    final_url = fmt::format("{0:s}?{1:s}", raw_url, this->_request.body());
-                }
+        } else if (method == "POST") {
+            curl_set_option(curl_request, CURLOPT_HTTPPOST, 1);
 
-                //需要获取的URL地址
-                curl_set_option(curl_request, CURLOPT_URL, final_url.c_str());
-                break;
-            }
+            //需要获取的URL地址
+            curl_set_option(curl_request, CURLOPT_URL, this->_final_url.c_str());
 
-            case http::HEAD:
-                break;
+            const auto &body = this->_request.body();
 
-            case http::POST: {
-                curl_set_option(curl_request, CURLOPT_HTTPPOST, 1);
+            curl_set_option(curl_request, CURLOPT_POSTFIELDSIZE, body.size());
 
-                //需要获取的URL地址
-                curl_set_option(curl_request,
-                                CURLOPT_URL,
-                                raw_url.c_str());
-
-                const auto& body = this->_request.body();
-
-                curl_set_option(curl_request,
-                                CURLOPT_POSTFIELDSIZE,
-                                body.size());
-
-                curl_set_option(curl_request,
-                                CURLOPT_POSTFIELDS,
-                                body.c_str());
-                break;
-            }
-
-            case http::PUT:
-                break;
-
-            case http::DELETE_:
-                break;
-
-            case http::CONNECT:
-                break;
-
-            case http::OPTIONS:
-                break;
-
-            case http::TRACE:
-                break;
+            curl_set_option(curl_request, CURLOPT_POSTFIELDS, body.c_str());
         }
 
         //得到请求结果后的回调函数

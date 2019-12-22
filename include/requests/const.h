@@ -1,15 +1,16 @@
 #ifndef CPPREQUESTS_CONST_H
 #define CPPREQUESTS_CONST_H
 
-#include "requests/http.h"
-#include "requests/curl.h"
 #include <curl/curl.h>
+
+#include "requests/http.h"
+#include "requests/structures.h"
 
 namespace crq {
 
     namespace curl {
 
-        const std::map<int, std::pair<std::string, std::string>> LIBCURL_CODE = {
+        const std::map<CURLcode, std::pair<std::string, std::string>> LIBCURL_CODE = {
                 {CURLE_OK,                   {
                                                      "CURLE_OK",
                                                      "All fine. Proceed as usual."
@@ -31,6 +32,27 @@ namespace crq {
 //            {CURLE_NOT_BUILT_IN, "CURLE_NOT_BUILT_IN"},
 //            {CURLE_COULDNT_RESOLVE_PROXY, "CURLE_COULDNT_RESOLVE_PROXY"},
 //            {CURLE_COULDNT_RESOLVE_HOST, "CURLE_COULDNT_RESOLVE_HOST"},
+        };
+
+        const std::map<CURLUcode, std::pair<std::string, std::string>> LIBCURL_URL_CODE = {
+                {CURLUE_OK, {"CURLUE_OK", "CURLUE_OK"}},
+                {CURLUE_BAD_HANDLE, {"CURLUE_BAD_HANDLE", "CURLUE_BAD_HANDLE"}},
+                {CURLUE_BAD_PARTPOINTER, {"CURLUE_BAD_PARTPOINTER", "CURLUE_BAD_PARTPOINTER"}},
+                {CURLUE_MALFORMED_INPUT, {"CURLUE_MALFORMED_INPUT", "CURLUE_MALFORMED_INPUT"}},
+                {CURLUE_BAD_PORT_NUMBER, {"CURLUE_BAD_PORT_NUMBER", "CURLUE_BAD_PORT_NUMBER"}},
+                {CURLUE_UNSUPPORTED_SCHEME, {"CURLUE_UNSUPPORTED_SCHEME", "CURLUE_UNSUPPORTED_SCHEME"}},
+                {CURLUE_URLDECODE, {"CURLUE_URLDECODE", "CURLUE_URLDECODE"}},
+                {CURLUE_OUT_OF_MEMORY, {"CURLUE_OUT_OF_MEMORY", "CURLUE_OUT_OF_MEMORY"}},
+                {CURLUE_USER_NOT_ALLOWED, {"CURLUE_USER_NOT_ALLOWED", "CURLUE_USER_NOT_ALLOWED"}},
+                {CURLUE_UNKNOWN_PART, {"CURLUE_UNKNOWN_PART", "CURLUE_UNKNOWN_PART"}},
+                {CURLUE_NO_SCHEME, {"CURLUE_NO_SCHEME", "CURLUE_NO_SCHEME"}},
+                {CURLUE_NO_USER, {"CURLUE_NO_USER", "CURLUE_NO_USER"}},
+                {CURLUE_NO_PASSWORD, {"CURLUE_NO_PASSWORD", "CURLUE_NO_PASSWORD"}},
+                {CURLUE_NO_OPTIONS, {"CURLUE_NO_OPTIONS", "CURLUE_NO_OPTIONS"}},
+                {CURLUE_NO_HOST, {"CURLUE_NO_HOST", "CURLUE_NO_HOST"}},
+                {CURLUE_NO_PORT, {"CURLUE_NO_PORT", "CURLUE_NO_PORT"}},
+                {CURLUE_NO_QUERY, {"CURLUE_NO_QUERY", "CURLUE_NO_QUERY"}},
+                {CURLUE_NO_FRAGMENT, {"CURLUE_NO_FRAGMENT", "CURLUE_NO_FRAGMENT"}}
         };
 
         const std::map<http::HTTP_REQUEST_TYPE, std::string> LIBCURL_HTTP_VERB{

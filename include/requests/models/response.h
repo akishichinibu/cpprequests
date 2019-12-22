@@ -30,8 +30,8 @@ namespace crq {
                  std::string content,
                  long elapsed);
 
-        [[nodiscard]] inline const std::string &url() const {
-            return this->_request.request().url();
+        [[nodiscard]] inline std::string url() const {
+            return this->_request.url();
         }
 
         PRIMARY_PROPERTY(status_code, _status_code, int);
@@ -49,7 +49,7 @@ namespace crq {
         }
 
         [[nodiscard]] inline nlohmann::json json() const {
-            return this->_content;
+            return nlohmann::json::parse(this->_content);
         }
 
         [[nodiscard]] inline std::string text() const {
