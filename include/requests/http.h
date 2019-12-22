@@ -5,8 +5,10 @@
 
 namespace crq::http {
 
+    /// @enum http status code definition
     typedef enum {
-        OK = 200,
+        OK = 200, ///< OK
+        CREATED = 201, ///< OK
         BAD_REQUEST = 400,
         UNAUTHORIZED = 401,
         FORBIDDEN = 403,
@@ -15,8 +17,11 @@ namespace crq::http {
         SERVER_UNAVAILABLE = 503,
     } HTTP_STATUS_CODE;
 
-    static const std::map<int, std::string> HTTP_STATUS_CODE_MESSAGE = {
+
+    /// @enum The message of the http status code definition
+    static const std::map<HTTP_STATUS_CODE, std::string> HTTP_STATUS_CODE_MESSAGE = {
             {HTTP_STATUS_CODE::OK,                    "OK"},
+            {HTTP_STATUS_CODE::CREATED,                    "CREATED"},
             {HTTP_STATUS_CODE::BAD_REQUEST,           "Bad Request"},
             {HTTP_STATUS_CODE::UNAUTHORIZED,          "Unauthorized"},
             {HTTP_STATUS_CODE::FORBIDDEN,             "Forbidden"},
@@ -25,6 +30,7 @@ namespace crq::http {
             {HTTP_STATUS_CODE::SERVER_UNAVAILABLE,    "Server Unavailable"}
     };
 
+    /// @enum http requests action definition
     typedef enum {
         GET,
         HEAD,

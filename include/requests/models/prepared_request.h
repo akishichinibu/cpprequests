@@ -67,7 +67,13 @@ namespace crq {
         template<typename T>
         inline T curl_get_info(CURLINFO key) {
             T buf;
-            LIBCURL_ERROR_CHECK(curl_easy_getinfo(this->curl_request_ptr(), key, &buf));
+            const auto res = curl_easy_getinfo(this->curl_request_ptr(), key, &buf);
+
+            if (res != CURLE_OK) {
+                std::string err, err_info;
+                std::tie(err, err_info) = curl::LIBCURL_CODE.at(res);
+                throw std::runtime_error(err);
+            }
             return buf;
         }
     };
@@ -188,13 +194,13 @@ namespace crq {
 
         const auto &method = this->_request.method();
 
-        if (method == "GET") {
+        if (method == curl::LIBCURL_HTTP_VERB.at(http::GET)) {
             curl_set_option(curl_request, CURLOPT_HTTPGET, 1);
 
             //需要获取的URL地址
             curl_set_option(curl_request, CURLOPT_URL, this->_final_url.c_str());
 
-        } else if (method == "POST") {
+        } else if (method == curl::LIBCURL_HTTP_VERB.at(http::POST)) {
             curl_set_option(curl_request, CURLOPT_HTTPPOST, 1);
 
             //需要获取的URL地址

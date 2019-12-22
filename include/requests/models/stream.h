@@ -5,17 +5,7 @@
 
 namespace crq {
 
-    inline std::pair<const char*, const char*> simple_strip(const char* start, const char* end) {
-        auto head = start;
-        auto tail = end;
 
-        auto checker = [](char s) -> bool { return (s == '\n') || (s == '\r') || (s == ' '); };
-
-        while (checker(*head)) { head++; }
-        do { tail--; } while (checker(*tail));
-
-        return {head, tail + 1};
-    }
 
     class StreamBuffer {
 
@@ -29,7 +19,9 @@ namespace crq {
         bool _consumed = false;
 
     public:
-        explicit StreamBuffer(Request &handler) : _handler(handler) {}
+        explicit StreamBuffer(Request &handler) : _handler(handler) {
+            this->body_buffer.reserve(1024);
+        }
 
         static std::size_t write_callback(void *contents,
                                           std::size_t size,
@@ -76,10 +68,10 @@ namespace crq {
 
             if (split_pos != nullptr) {
                 const char *key_head, *key_end;
-                std::tie(key_head, key_end) = simple_strip(char_content, split_pos);
+                std::tie(key_head, key_end) = string::char_strip(char_content, split_pos);
 
                 const char *value_head, *value_end;
-                std::tie(value_head, value_end) = simple_strip(split_pos + 1, char_content + content_length);
+                std::tie(value_head, value_end) = string::char_strip(split_pos + 1, char_content + content_length);
 
                 const auto key = std::string(key_head, key_end);
                 const auto value = std::string(value_head, value_end);

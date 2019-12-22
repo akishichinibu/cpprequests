@@ -81,11 +81,11 @@ namespace crq {
 
             auto scheme = URL::_curl_url_get(handler, CURLUPART_SCHEME, 0);
 
-            const std::string scheme_str = lower(std::string{scheme.get()});
+            const std::string scheme_str = string::lower(std::string{scheme.get()});
 
             const auto host = URL::_curl_url_get(handler, CURLUPART_HOST, 0);
 
-            const std::string host_str = lower(std::string{host.get()});
+            const std::string host_str = string::lower(std::string{host.get()});
 
             auto get_or_empty = [](const CURLCptrType &ptr) -> std::string {
                 std::string buf;

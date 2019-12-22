@@ -121,7 +121,7 @@ namespace crq {
                      bool stream,
                      bool no_signal,
                      bool verbose) :
-            _method(upper(method)),
+            _method(string::upper(method)),
             _url(URL { url }),
             _headers(merge_headers(default_headers(), headers)),
             _timeout(timeout),
@@ -139,7 +139,7 @@ namespace crq {
                      bool stream,
                      bool no_signal,
                      bool verbose) :
-            _method(upper(method)),
+            _method(string::upper(method)),
             _url(std::move(url)),
             _headers(merge_headers(default_headers(), headers)),
             _timeout(timeout),

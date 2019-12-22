@@ -16,7 +16,7 @@ TEST(TEST_CPPREQUESTS, TEST_INVALID_URL) {
     ASSERT_THROW(crq::URL{"http://"}, std::runtime_error);
 }
 
-TEST(TEST_CPPREQUESTS, TEST_VALID_URL) {
+TEST(TEST_CPPREQUESTS, TEST_VALID_URL_1) {
     const auto url = "http://jsonplaceholder.typicode.com/todos/1";
 
     crq::URL s = crq::URL{url};
@@ -28,6 +28,24 @@ TEST(TEST_CPPREQUESTS, TEST_VALID_URL) {
     ASSERT_EQ(s.port(), 0);
 
     ASSERT_EQ(s.path(), "/todos/1");
+}
+
+TEST(TEST_CPPREQUESTS, TEST_VALID_URL_2) {
+    const auto url = "HttP://aaa.bbb.ccc:12345?key=value";
+
+    crq::URL s = crq::URL{url};
+
+    ASSERT_EQ(s.scheme(), "http");
+
+    ASSERT_EQ(s.host(), "aaa.bbb.ccc");
+
+    ASSERT_EQ(s.port(), 12345);
+
+    ASSERT_EQ(s.path(), "");
+
+    ASSERT_EQ(s.raw_query(), "key=value");
+
+    ASSERT_EQ(s.fragment(), "");
 }
 
 TEST(TEST_CPPREQUESTS, TEST_FULL_URL) {
