@@ -9,6 +9,7 @@ INCLUDE_DIRECTORIES(external/gzip-hpp/include)
 INCLUDE_DIRECTORIES(external/json/include)
 INCLUDE_DIRECTORIES(external/cpp-httplib/)
 include_directories(external/googletest/googletest/include)
+include_directories(external/eternal/include)
 
 ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/test)
 #ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/external/curl-7.67.0)

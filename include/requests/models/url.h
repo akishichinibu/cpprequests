@@ -7,20 +7,16 @@
 #include <curl/curl.h>
 #include <stdexcept>
 
+#include "requests/structures.h"
 #include "requests/utils.h"
 #include "requests/exception.h"
 
-#define LIBCURL_URL_ERROR_CHECK(expr) _ERROR_CHECK(expr, crq::curl::LIBCURL_URL_CODE, CURLUE_OK, crq::InvalidURL)
 
 namespace crq {
 
     class URL {
 
     private:
-        using CURLUptrType = std::unique_ptr<CURLU, decltype(curl_url_cleanup) *>;
-        using CURLCptrType = std::unique_ptr<char, decltype(curl_free) *>;
-        using ParamsMap = std::map<std::string, std::string>;
-
         std::string _scheme;
         std::string _auth;
 
@@ -38,9 +34,8 @@ namespace crq {
             const auto res = curl_url_set(handler.get(), part, content, flags);
 
             if (res != CURLUE_OK) {
-                std::string err, err_info;
-                std::tie(err, err_info) = curl::LIBCURL_URL_CODE.at(res);
-                throw std::runtime_error(err);
+                const auto err = curl::LIBCURL_URL_CODE.at(res);
+                throw std::runtime_error(err.c_str());
             }
         }
 
@@ -101,22 +96,17 @@ namespace crq {
 
             const auto path = get_or_empty(URL::_curl_url_get(handler, CURLUPART_PATH, 0));
 
-            const auto query = get_or_empty(URL::_curl_url_get(handler, CURLUPART_QUERY, 0));
-
             const auto fragment = get_or_empty(URL::_curl_url_get(handler, CURLUPART_FRAGMENT, 0));
 
-            return {
-                    scheme_str,
-                    host_str,
-                    port_num,
-                    path,
-                    query,
-                    fragment
-            };
+            auto u = URL(scheme_str, host_str, port_num, path, fragment);
+
+            const auto query_str = get_or_empty(URL::_curl_url_get(handler, CURLUPART_QUERY, 0));
+
+            u.params(parse_queries(query_str));
+            return u;
         }
 
-
-        inline static ParamsMap parse_queries(const std::string& qstr) {
+        inline static ParamsMap parse_queries(const std::string &qstr) {
             if (qstr.empty()) {
                 return {};
             }
@@ -156,20 +146,20 @@ namespace crq {
             return kvs;
         }
 
-        inline std::string build_raw_query() const {
+        [[nodiscard]] inline std::string build_raw_query() const {
             std::string buf;
 
             if (!this->_params.empty()) {
                 buf.reserve(10 * this->_params.size());
 
-                for (auto& item: this->_params) {
+                for (auto &item: this->_params) {
                     const auto part = fmt::format("{0:s}={1:s}&", item.first, item.second);
                     buf += part;
                 }
 
                 buf.erase(buf.size() - 1, 1);
             }
-            
+
             return buf;
         }
 
@@ -177,15 +167,13 @@ namespace crq {
         URL(std::string scheme,
             std::string host,
             unsigned short port,
-            std::string path = "",
-            const std::string& query = "",
-            std::string fragment = "") :
+            std::string path,
+            std::string fragment="") :
                 _scheme(std::move(scheme)),
                 _host(std::move(host)),
                 _port(port),
                 _path(std::move(path)),
-                _params(parse_queries(query)),
-                _fragment(std::move(fragment)) {}
+                _fragment(std::move(fragment)) {};
 
         explicit inline URL(const std::string &url_str) {
             *this = std::move(URL::parse_from_string(url_str));
@@ -195,7 +183,7 @@ namespace crq {
             return this->request_uri();
         }
 
-        inline std::string request_uri() const {
+        [[nodiscard]] inline std::string request_uri() const {
             std::string buf = fmt::format("{0:s}://{1:s}", this->_scheme, this->_host);
             buf.reserve(buf.size() * 2);
 
@@ -220,27 +208,20 @@ namespace crq {
             return buf;
         }
 
-        CONST_REF_PROPERTY(scheme, _scheme, std::string);
+        NOT_ALLOW_MODIFY_PROPERTY(scheme, _scheme, std::string);
 
-        CONST_REF_PROPERTY(host, _host, std::string);
+        NOT_ALLOW_MODIFY_PROPERTY(host, _host, std::string);
 
-        CONST_REF_PROPERTY(port, _port, unsigned short);
+        NOT_ALLOW_MODIFY_PROPERTY(port, _port, unsigned short);
 
-        CONST_REF_PROPERTY(path, _path, std::string);
+        NOT_ALLOW_MODIFY_PROPERTY(path, _path, std::string);
 
-        CONST_REF_PROPERTY(fragment, _fragment, std::string);
+        NOT_ALLOW_MODIFY_PROPERTY(fragment, _fragment, std::string);
+
+        ALLOW_MODIFY_PROPERTY(params, _params, ParamsMap);
 
         [[nodiscard]] inline std::string raw_query() const {
             return this->build_raw_query();
-        }
-
-        inline const ParamsMap& params() {
-            return this->_params;
-        }
-
-        inline URL add_query(const std::string& key, const std::string& value) {
-            this->_params[key] = value;
-            return *this;
         }
     };
 };

@@ -41,7 +41,7 @@ TEST(TEST_CPPREQUESTS, TEST_VALID_URL_2) {
 
     ASSERT_EQ(s.port(), 12345);
 
-    ASSERT_EQ(s.path(), "");
+    ASSERT_EQ(s.path(), "/");
 
     ASSERT_EQ(s.raw_query(), "key=value");
 
@@ -72,6 +72,14 @@ TEST(TEST_CPPREQUESTS, TEST_FULL_URL) {
     ASSERT_EQ(qs.at("key1"), "value1");
 
     ASSERT_EQ(qs.at("key2"), "value2");
+}
+
+
+TEST(TEST_CPPREQUESTS, TEST_QUERY) {
+    crq::URL s = crq::URL("https", "aaa.bbb.ccc", 1234, "/ddd/1");
+    s.params({{"key1", "value1"}, {"key2", "value2"}});
+
+    ASSERT_EQ(s.request_uri(), "https://aaa.bbb.ccc:1234/ddd/1?key1=value1&key2=value2");
 }
 
 

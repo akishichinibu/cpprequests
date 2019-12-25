@@ -4,7 +4,6 @@
 #include <nlohmann/json.hpp>
 #include <utility>
 
-#include "requests/http.h"
 #include "requests/utils.h"
 #include "requests/const.h"
 #include "requests/models/url.h"
@@ -13,9 +12,11 @@
 namespace crq {
 
     class Request {
+        /// User used Request object.
 
     public:
-        static constexpr int DEFAULT_TIMEOUT = 10;
+        /// The definition of default params for request
+        static constexpr long DEFAULT_TIMEOUT = 300L;
         static constexpr bool DEFAULT_ALLOW_REDIRECTS = true;
         static constexpr bool DEFAULT_STREAM = false;
         static constexpr bool DEFAULT_VERBOSE = false;
@@ -24,167 +25,62 @@ namespace crq {
         std::string _method;
         URL _url;
 
-        int _timeout;
+        long _timeout;
         bool _allow_redirects;
         bool _stream;
 
-        bool _no_signal;
         bool _verbose;
 
         std::string _body;
         HeaderMap _headers;
+        std::map<std::string, std::string> _proxy;
 
     public:
-        // Request的描述
-        Request(const std::string& method,
-                const std::string& url,
-                const HeaderMap &headers = HeaderMap(),
-                const std::map<std::string, std::string>& proxy = {},
-                int timeout = DEFAULT_TIMEOUT,
-                bool allow_redirects = DEFAULT_ALLOW_REDIRECTS,
-                bool stream = DEFAULT_STREAM,
-                bool no_signal = false,
-                bool verbose = DEFAULT_VERBOSE);
+        /// The constructor of the Request.
+        /// @param method - The request method as string. The self-defined request types are also allowed.
+        /// @param url - The target url to request.
+        /// @param headers - The user-defined headers to append to request.
+        /// @param proxy - The proxy configuration.
+        /// @param timeout - The timeout setting. Default is 300ms.
+        /// @param allow_redirects - The timeout setting. Default is 300ms.
+        /// @param stream - The timeout setting. Default is 300ms.
+        /// @param no_signal - The timeout setting. Default is 300ms.
+        /// @param verbose - The timeout setting. Default is 300ms.
+        Request(const std::string &method, const std::string &url) :
+                _method(string::upper(method)),
+                _url(URL{url}),
+                _headers(utils::default_headers()),
+                _timeout(DEFAULT_TIMEOUT),
+                _allow_redirects(DEFAULT_ALLOW_REDIRECTS),
+                _stream(DEFAULT_VERBOSE),
+                _verbose(DEFAULT_VERBOSE) {};
 
-        Request(const std::string& method,
-                URL url,
-                const HeaderMap &headers = HeaderMap(),
-                const std::map<std::string, std::string>& proxy = {},
-                int timeout = DEFAULT_TIMEOUT,
-                bool allow_redirects = DEFAULT_ALLOW_REDIRECTS,
-                bool stream = DEFAULT_STREAM,
-                bool no_signal = false,
-                bool verbose = DEFAULT_VERBOSE);
+        ALLOW_MODIFY_PROPERTY(timeout, _timeout, long);
 
-        Request(http::HTTP_REQUEST_TYPE method,
-                const std::string& url,
-                const HeaderMap &headers = HeaderMap(),
-                const std::map<std::string, std::string>& proxy = {},
-                int timeout = DEFAULT_TIMEOUT,
-                bool allow_redirects = DEFAULT_ALLOW_REDIRECTS,
-                bool stream = DEFAULT_STREAM,
-                bool no_signal = false,
-                bool verbose = DEFAULT_VERBOSE);
+        ALLOW_MODIFY_PROPERTY(allow_redirects, _allow_redirects, bool);
 
-        Request(http::HTTP_REQUEST_TYPE method,
-                URL url,
-                const HeaderMap &headers = HeaderMap(),
-                const std::map<std::string, std::string>& proxy = {},
-                int timeout = DEFAULT_TIMEOUT,
-                bool allow_redirects = DEFAULT_ALLOW_REDIRECTS,
-                bool stream = DEFAULT_STREAM,
-                bool no_signal = false,
-                bool verbose = DEFAULT_VERBOSE);
+        ALLOW_MODIFY_PROPERTY(stream, _stream, bool);
 
-        PRIMARY_PROPERTY(method, _method, std::string);
+        ALLOW_MODIFY_PROPERTY(verbose, _verbose, bool);
 
-        CONST_REF_PROPERTY(url, _url, URL);
+        ALLOW_MODIFY_PROPERTY(headers, _headers, HeaderMap);
 
-        PRIMARY_PROPERTY(timeout, _timeout, long);
+        ALLOW_MODIFY_PROPERTY(body, _body, std::string);
 
-        PRIMARY_PROPERTY(allow_redirects, _allow_redirects, bool);
+        NOT_ALLOW_MODIFY_PROPERTY(method, _method, std::string);
 
-        PRIMARY_PROPERTY(stream, _stream, bool);
+        NOT_ALLOW_MODIFY_PROPERTY(url, _url, URL);
 
-        PRIMARY_PROPERTY(no_signal, _no_signal, bool);
-
-        PRIMARY_PROPERTY(verbose, _verbose, bool);
-
-        CONST_REF_PROPERTY(headers, _headers, HeaderMap);
-
-        REF_PROPERTY(body, _body, std::string);
-
-        inline Request &body_(const std::string &buf) {
-            this->_body.append(buf);
-            return *this;
-        }
-
-        inline Request &json_(const nlohmann::json &buf) {
+        inline Request &json(const nlohmann::json &buf) {
             const auto json_string = buf.dump();
-            return this->body_(json_string);
+            return this->body(json_string);
         }
 
-        inline Request &params_(const std::vector<std::pair<std::string, std::string>> &p) {
-            for (auto& item: p) {
-                this->_url.add_query(item.first, item.second);
-            }
+        inline Request &params(const ParamsMap &p) {
+            this->_url.params(p);
             return *this;
         }
     };
-
-    Request::Request(const std::string& method,
-                     const std::string& url,
-                     const HeaderMap& headers,
-                     const std::map<std::string, std::string>& proxy,
-                     int timeout,
-                     bool allow_redirects,
-                     bool stream,
-                     bool no_signal,
-                     bool verbose) :
-            _method(string::upper(method)),
-            _url(URL { url }),
-            _headers(merge_headers(default_headers(), headers)),
-            _timeout(timeout),
-            _allow_redirects(allow_redirects),
-            _stream(stream),
-            _no_signal(no_signal),
-            _verbose(verbose) {};
-
-    Request::Request(const std::string& method,
-                     URL url,
-                     const HeaderMap& headers,
-                     const std::map<std::string, std::string>& proxy,
-                     int timeout,
-                     bool allow_redirects,
-                     bool stream,
-                     bool no_signal,
-                     bool verbose) :
-            _method(string::upper(method)),
-            _url(std::move(url)),
-            _headers(merge_headers(default_headers(), headers)),
-            _timeout(timeout),
-            _allow_redirects(allow_redirects),
-            _stream(stream),
-            _no_signal(no_signal),
-            _verbose(verbose) {};
-
-    Request::Request(http::HTTP_REQUEST_TYPE method,
-                     const std::string& url,
-                     const HeaderMap& headers,
-                     const std::map<std::string, std::string>& proxy,
-                     int timeout,
-                     bool allow_redirects,
-                     bool stream,
-                     bool no_signal,
-                     bool verbose) :
-            Request(curl::LIBCURL_HTTP_VERB.at(method),
-                    url,
-                    headers,
-                    proxy,
-                    timeout,
-                    allow_redirects,
-                    stream,
-                    no_signal,
-                    verbose) {};
-
-    Request::Request(http::HTTP_REQUEST_TYPE method,
-                     URL url,
-                     const HeaderMap& headers,
-                     const std::map<std::string, std::string>& proxy,
-                     int timeout,
-                     bool allow_redirects,
-                     bool stream,
-                     bool no_signal,
-                     bool verbose) :
-                     Request(curl::LIBCURL_HTTP_VERB.at(method),
-                             std::move(url),
-                             headers,
-                             proxy,
-                             timeout,
-                             allow_redirects,
-                             stream,
-                             no_signal,
-                             verbose) {};
 };
 
 #endif //CPPREQUESTS_REQUEST_H

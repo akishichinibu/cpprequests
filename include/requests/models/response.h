@@ -3,7 +3,6 @@
 
 #include <string>
 
-#include "requests/http.h"
 #include "requests/utils.h"
 #include "requests/models/prepared_request.h"
 
@@ -20,7 +19,7 @@ namespace crq {
         std::string _encoding;
         std::string _content;
         std::string _history;
-        long _elapsed;
+        double _elapsed;
 
     public:
         Response(PreparedRequest request,
@@ -28,21 +27,28 @@ namespace crq {
                  HeaderMap headers,
                  std::string encoding,
                  std::string content,
-                 long elapsed);
+                 long elapsed) :
+                _request(std::move(request)),
+                _status_code(status_code),
+                _headers(std::move(headers)),
+                _encoding(std::move(encoding)),
+                _content(std::move(content)),
+                _elapsed(elapsed) {};
 
-        [[nodiscard]] inline std::string url() const {
+        NOT_ALLOW_MODIFY_PROPERTY(status_code, _status_code, int);
+
+        NOT_ALLOW_MODIFY_PROPERTY(encoding, _encoding, std::string);
+
+        NOT_ALLOW_MODIFY_PROPERTY(content, _content, std::string);
+
+        NOT_ALLOW_MODIFY_PROPERTY(elapsed, _elapsed, double);
+
+        NOT_ALLOW_MODIFY_PROPERTY(headers, _headers, HeaderMap);
+
+
+        [[nodiscard]] inline const std::string& url() const {
             return this->_request.url();
         }
-
-        PRIMARY_PROPERTY(status_code, _status_code, int);
-
-        CONST_REF_PROPERTY(encoding, _encoding, std::string);
-
-        CONST_REF_PROPERTY(content, _content, std::string);
-
-        PRIMARY_PROPERTY(elapsed, _elapsed, double);
-
-        CONST_REF_PROPERTY(headers, _headers, HeaderMap);
 
         [[nodiscard]] inline bool ok() const {
             return this->_status_code == http::OK;
@@ -56,19 +62,6 @@ namespace crq {
             return this->_content;
         }
     };
-
-    Response::Response(PreparedRequest request,
-                       int status_code,
-                       HeaderMap headers,
-                       std::string encoding,
-                       std::string content,
-                       long elapsed) :
-            _request(std::move(request)),
-            _status_code(status_code),
-            _headers(std::move(headers)),
-            _encoding(std::move(encoding)),
-            _content(std::move(content)),
-            _elapsed(elapsed) {}
 }
 
 #endif //CPPREQUESTS_RESPONSE_H

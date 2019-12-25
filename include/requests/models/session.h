@@ -20,9 +20,8 @@ namespace crq {
             const auto res = curl_easy_perform(req.curl_request_ptr());
 
             if (res != CURLE_OK) {
-                std::string err, err_info;
-                std::tie(err, err_info) = curl::LIBCURL_CODE.at(res);
-                throw std::runtime_error(err);
+                const auto err = curl::LIBCURL_CODE.at(res);
+                throw std::runtime_error(err.c_str());
             }
         }
     };

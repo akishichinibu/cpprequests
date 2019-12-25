@@ -4,26 +4,15 @@
 
 
 TEST(TEST_CPPREQUESTS, TEST_HTTP_GET_1) {
-    std::cout << "Here" << std::endl;
-
     const std::string url = "http://jsonplaceholder.typicode.com/todos/1";
 
     auto kk = crq::URL {url};
-
-    std::cout << kk.request_uri() << std::endl;
-
-    auto req = crq::Request(crq::http::GET, url);
-
-    std::cout << "Here" << std::endl;
+    auto req = crq::Request("GET", url);
 
     auto session = crq::Session();
     auto res = session.send(req);
 
-    std::cout << "Here" << std::endl;
-
     ASSERT_EQ(res.status_code(), crq::http::OK);
-
-    std::cout << "Here" << std::endl;
 
     const auto body = res.json();
 
@@ -41,8 +30,8 @@ TEST(TEST_CPPREQUESTS, TEST_HTTP_GET_1) {
 TEST(TEST_CPPREQUESTS, TEST_HTTP_GET_2) {
     const std::string url = "http://jsonplaceholder.typicode.com/comments";
 
-    auto req = crq::Request(crq::http::GET, url)
-            .params_({{"postId", "1"}});
+    auto req = crq::Request("GET", url)
+            .params({{"postId", "1"}});
 
     auto session = crq::Session();
     auto res = session.send(req);

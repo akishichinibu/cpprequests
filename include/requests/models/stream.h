@@ -5,8 +5,6 @@
 
 namespace crq {
 
-
-
     class StreamBuffer {
 
     private:
@@ -82,11 +80,11 @@ namespace crq {
             return content_length;
         }
 
-        REF_PROPERTY(header, header_buffer, HeaderMap);
+        EXPOSE_REF_GETTER(header, header_buffer, HeaderMap);
 
-        REF_PROPERTY(body, body_buffer, std::string);
+        EXPOSE_REF_GETTER(body, body_buffer, std::string);
 
-        PRIMARY_PROPERTY(consumed, _consumed, bool);
+        ALLOW_MODIFY_PROPERTY(consumed, _consumed, bool);
     };
 }
 
