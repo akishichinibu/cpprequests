@@ -13,11 +13,11 @@ namespace crq {
     public:
         Session() {};
 
-        Response send(const Request &__req);
+        Response send(const Request& __req);
 
-        inline void static perform(PreparedRequest &req) {
+        inline void static perform(PreparedRequest& req) {
             //执行请求
-            const auto res = curl_easy_perform(req.curl_request_ptr());
+            const auto res = curl_easy_perform(req.curl_request_handler().get());
 
             if (res != CURLE_OK) {
                 const auto err = curl::LIBCURL_CODE.at(res);
@@ -26,15 +26,15 @@ namespace crq {
         }
     };
 
-    Response Session::send(const Request &__req) {
+    Response Session::send(const Request& __req) {
         auto req = PreparedRequest(__req);
         Session::perform(req);
 
         const auto header = req.buffer().header();
         const auto content = req.buffer().body();
 
-        const auto res_code = req.curl_get_info<long>(CURLINFO_RESPONSE_CODE);
-        const auto elapsed = req.curl_get_info<double>(CURLINFO_TOTAL_TIME);
+        const auto res_code = req.curlGetInfo<long>(CURLINFO_RESPONSE_CODE);
+        const auto elapsed = req.curlGetInfo<double>(CURLINFO_TOTAL_TIME);
 
         return Response(std::move(req),
                         res_code,

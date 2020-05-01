@@ -19,7 +19,7 @@ namespace crq {
         std::string _encoding;
         std::string _content;
         std::string _history;
-        double _elapsed;
+        long _elapsed;
 
     public:
         Response(PreparedRequest request,
@@ -41,10 +41,9 @@ namespace crq {
 
         NOT_ALLOW_MODIFY_PROPERTY(content, _content, std::string);
 
-        NOT_ALLOW_MODIFY_PROPERTY(elapsed, _elapsed, double);
+        NOT_ALLOW_MODIFY_PROPERTY(elapsed, _elapsed, long);
 
         NOT_ALLOW_MODIFY_PROPERTY(headers, _headers, HeaderMap);
-
 
         [[nodiscard]] inline const std::string& url() const {
             return this->_request.url();
@@ -55,10 +54,10 @@ namespace crq {
         }
 
         [[nodiscard]] inline nlohmann::json json() const {
-            return nlohmann::json::parse(this->_content);
+            return nlohmann::json::parse(this->_content.c_str());
         }
 
-        [[nodiscard]] inline std::string text() const {
+        [[nodiscard]] inline const std::string& text() const {
             return this->_content;
         }
     };

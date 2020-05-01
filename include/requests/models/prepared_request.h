@@ -14,19 +14,11 @@
 
 namespace crq {
 
-    class PreparedRequest {
+    using CURLptrType = std::unique_ptr<CURL, decltype(curl_easy_cleanup)*>;
 
-    private:
-        using CURLptrType = std::unique_ptr<CURL, decltype(curl_easy_cleanup) *>;
-        using CURLsListType = std::unique_ptr<curl_slist, decltype(curl_slist_free_all) *>;
+    using CURLsListType = std::unique_ptr<curl_slist, decltype(curl_slist_free_all)*>;
 
-        CURLptrType curl_request_handler;
-
-        Request _request;
-        StreamBuffer _buffer;
-
-        CURLsListType raw_header;
-        std::string _final_url;
+    class libCURLHandleMixin {
 
         // 处理libcurl的全局初始化
         static std::atomic<bool> global_init_status;
@@ -34,101 +26,155 @@ namespace crq {
         static std::mutex global_execute;
         static std::lock_guard<std::mutex> global_execute_lock;
 
-        // 统一的资源析构控制接口
-        inline static void init();
+        inline static void libcurl_global_init() {
+            if (libCURLHandleMixin::global_init_status) {
+                return;
+            }
 
-        inline static void close();
+            std::lock_guard<std::mutex> lock(libCURLHandleMixin::global_execute);
 
-        inline static void libcurl_global_init();
+            if (libCURLHandleMixin::global_init_status) {
+                return;
+            }
 
-        inline static void libcurl_global_clean();
+            const auto res = curl_global_init(CURL_GLOBAL_ALL);
+
+            if (res != CURLE_OK) {
+                const auto err = curl::LIBCURL_CODE.at(res);
+                throw std::runtime_error(err.c_str());
+            }
+        }
+
+        inline static void libcurl_global_clean() {
+            if (libCURLHandleMixin::global_clean_status) return;
+
+            std::lock_guard<std::mutex> lock(libCURLHandleMixin::global_execute);
+
+            if (libCURLHandleMixin::global_clean_status) return;
+
+            curl_global_cleanup();
+        }
+
+    public:
+        inline static void init() {
+            libCURLHandleMixin::libcurl_global_init();
+        }
+
+        inline static void close() {
+            libCURLHandleMixin::libcurl_global_clean();
+        }
 
         // libcurl的API处理
-        inline static CURLptrType init_curl_request();
+        inline static CURLptrType init_curl_request() {
+            CURL* curl_request = curl_easy_init();
+
+            if (curl_request == nullptr) {
+                spdlog::error("Init CURL failed...");
+                throw std::runtime_error("Init CURL failed. ");
+            }
+
+            return CURLptrType(curl_request, curl_easy_cleanup);
+        }
 
         template<typename T>
-        inline static void curl_set_option(CURL *request, CURLoption key, T params);
+        inline static void curl_set_option(CURL* request, CURLoption key, T params) {
+            const auto res = curl_easy_setopt(request, key, params);
 
-        inline static CURLsListType build_header(const HeaderMap &header_map);
+            if (res != CURLE_OK) {
+                const auto err = curl::LIBCURL_CODE.at(res);
+                throw std::runtime_error(err.c_str());
+            }
+        }
+
+        inline static CURLsListType build_header(const HeaderMap& header_map) {
+            curl_slist* slist_buffer = nullptr;
+
+            for (auto& item: header_map) {
+                const auto content = item.first + ": " + item.second;
+                slist_buffer = curl_slist_append(slist_buffer, content.c_str());
+            }
+
+            return CURLsListType(slist_buffer, curl_slist_free_all);
+        }
+    };
+
+    class PreparedRequest : private libCURLHandleMixin {
+
+    private:
+        CURLptrType _curl_request_handler;
+
+        Request _request;
+        StreamBuffer _buffer;
+
+        CURLsListType raw_header;
+        std::string _final_url;
+
+        template<typename T>
+        inline void curlSetOption(CURLoption key, T params) {
+            return libCURLHandleMixin::curl_set_option(this->_curl_request_handler.get(), key, params);
+        }
 
     public:
         explicit PreparedRequest(Request request) :
-                curl_request_handler(PreparedRequest::init_curl_request()),
+                _curl_request_handler(PreparedRequest::init_curl_request()),
                 _request(std::move(request)),
                 _buffer(StreamBuffer(this->_request)),
                 raw_header(build_header(this->_request.headers())),
                 _final_url(this->_request.url().request_uri()) {
 
-            // 获取请求对象的指针
-            auto curl_request = curl_request_handler.get();
-
             //请求超时时长
-            curl_set_option(curl_request,
-                            CURLOPT_TIMEOUT_MS,
-                            this->_request.timeout());
+            curlSetOption(CURLOPT_TIMEOUT_MS, this->_request.timeout());
 
             //连接超时时长
-            curl_set_option(curl_request, CURLOPT_CONNECTTIMEOUT, this->_request.timeout());
+            curlSetOption(CURLOPT_CONNECTTIMEOUT, this->_request.timeout());
 
             //允许重定向
-            curl_set_option(curl_request,
-                            CURLOPT_FOLLOWLOCATION,
-                            static_cast<int>(this->_request.allow_redirects()));
+            curlSetOption(CURLOPT_FOLLOWLOCATION, static_cast<int>(this->_request.allow_redirects()));
 
             //关闭中断信号响应
-            curl_easy_setopt(curl_request,
-                             CURLOPT_NOSIGNAL,
-                             static_cast<int>(true));
-
-            const auto verbose = this->request().verbose();
+            curlSetOption(CURLOPT_NOSIGNAL, static_cast<int>(true));
 
             //若启用，会将头文件的信息作为数据流输出
-            curl_set_option(curl_request, CURLOPT_HEADER, 1);
+            curlSetOption(CURLOPT_HEADER, 1);
 
             //启用时会汇报所有的信息
-            curl_set_option(curl_request, CURLOPT_VERBOSE, static_cast<int>(verbose));
+            curlSetOption(CURLOPT_VERBOSE, static_cast<int>(this->request().verbose()));
 
             //需要获取的URL地址
-            curl_set_option(curl_request, CURLOPT_URL, this->_final_url.c_str());
+            curlSetOption(CURLOPT_URL, this->_final_url.c_str());
 
-            const auto &method = this->_request.method();
+            curlSetOption(CURLOPT_COOKIE, utils::params_encode<'=', ';'>(this->_request.cookies()));
 
-            if (method == curl::LIBCURL_HTTP_VERB.at(http::GET)) {
+            const auto& method = this->_request.method();
 
-                curl_set_option(curl_request, CURLOPT_HTTPGET, 1);
+            if (method == curl::LIBCURL_HTTP_VERB.at(http::GET).c_str()) {
 
-            } else if (method == curl::LIBCURL_HTTP_VERB.at(http::POST)) {
+                curlSetOption(CURLOPT_HTTPGET, 1);
 
-                curl_set_option(curl_request, CURLOPT_HTTPPOST, 1);
+            } else if (method == curl::LIBCURL_HTTP_VERB.at(http::POST).c_str()) {
 
-                const auto &body = this->_request.body();
+                curlSetOption(CURLOPT_HTTPPOST, 1);
 
-                curl_set_option(curl_request, CURLOPT_POSTFIELDSIZE, body.size());
+                const auto& body = this->_request.body();
 
-                curl_set_option(curl_request, CURLOPT_POSTFIELDS, body.c_str());
+                curlSetOption(CURLOPT_POSTFIELDSIZE, body.size());
 
-            } else if (method == curl::LIBCURL_HTTP_VERB.at(http::HEAD)) {
+                curlSetOption(CURLOPT_POSTFIELDS, body.c_str());
 
-                curl_set_option(curl_request, CURLOPT_NOBODY, 1);
+            } else if (method == curl::LIBCURL_HTTP_VERB.at(http::HEAD).c_str()) {
+
+                curlSetOption(CURLOPT_NOBODY, 1);
 
             }
 
             //得到请求结果后的回调函数
-            curl_set_option(curl_request,
-                            CURLOPT_HEADERFUNCTION,
-                            StreamBuffer::header_callback);
+            curlSetOption(CURLOPT_HEADERFUNCTION, StreamBuffer::header_callback);
 
-            curl_set_option(curl_request,
-                            CURLOPT_WRITEFUNCTION,
-                            StreamBuffer::write_callback);
+            curlSetOption(CURLOPT_WRITEFUNCTION, StreamBuffer::write_callback);
 
-            curl_set_option(curl_request,
-                            CURLOPT_HEADERDATA,
-                            &this->_buffer.header());
+            curlSetOption(CURLOPT_HEADERDATA, &this->_buffer.header());
 
-            curl_set_option(curl_request,
-                            CURLOPT_WRITEDATA,
-                            &this->_buffer);
+            curlSetOption(CURLOPT_WRITEDATA, &this->_buffer);
         }
 
         NOT_ALLOW_MODIFY_PROPERTY(request, _request, Request);
@@ -137,14 +183,12 @@ namespace crq {
 
         EXPOSE_REF_GETTER(buffer, _buffer, StreamBuffer);
 
-        inline CURL *curl_request_ptr() {
-            return this->curl_request_handler.get();
-        }
+        EXPOSE_REF_GETTER(curl_request_handler, _curl_request_handler, CURLptrType);
 
         template<typename T>
-        inline T curl_get_info(CURLINFO key) {
+        inline T curlGetInfo(CURLINFO key) {
             T buf;
-            const auto res = curl_easy_getinfo(this->curl_request_ptr(), key, &buf);
+            const auto res = curl_easy_getinfo(this->curl_request_handler().get(), key, &buf);
 
             if (res != CURLE_OK) {
                 const auto err = curl::LIBCURL_CODE.at(res);
@@ -153,82 +197,6 @@ namespace crq {
             return buf;
         }
     };
-
-
-    void PreparedRequest::libcurl_global_init() {
-        // curl_global_init 方法线程不安全
-
-        if (PreparedRequest::global_init_status) {
-            return;
-        }
-
-        std::lock_guard<std::mutex> lock(PreparedRequest::global_execute);
-
-        if (PreparedRequest::global_init_status) {
-            return;
-        }
-
-        const auto res = curl_global_init(CURL_GLOBAL_ALL);
-
-        if (res != CURLE_OK) {
-            const auto err = curl::LIBCURL_CODE.at(res);
-            throw std::runtime_error(err.c_str());
-        }
-    }
-
-    void PreparedRequest::libcurl_global_clean() {
-        if (PreparedRequest::global_clean_status) {
-            return;
-        }
-
-        std::lock_guard<std::mutex> lock(PreparedRequest::global_execute);
-
-        if (PreparedRequest::global_clean_status) {
-            return;
-        }
-
-        curl_global_cleanup();
-    }
-
-    auto PreparedRequest::init_curl_request() -> CURLptrType {
-        CURL *curl_request = curl_easy_init();
-
-        if (curl_request == nullptr) {
-            spdlog::error("Init CURL failed...");
-            throw std::runtime_error("Init CURL failed. ");
-        }
-
-        return CURLptrType(curl_request, curl_easy_cleanup);
-    }
-
-    void PreparedRequest::init() {
-        PreparedRequest::libcurl_global_init();
-    }
-
-    void PreparedRequest::close() {
-        PreparedRequest::libcurl_global_clean();
-    }
-
-    template<typename T>
-    void PreparedRequest::curl_set_option(CURL *request, CURLoption key, T params) {
-        const auto res = curl_easy_setopt(request, key, params);
-
-        if (res != CURLE_OK) {
-            const auto err = curl::LIBCURL_CODE.at(res);
-            throw std::runtime_error(err.c_str());
-        }
-    }
-
-    auto PreparedRequest::build_header(const HeaderMap &header_map) -> CURLsListType {
-        curl_slist *slist_buffer = nullptr;
-
-        for (auto &item: header_map) {
-            const auto content = fmt::format("{0:s}: {1:s}", item.first, item.second);
-            slist_buffer = curl_slist_append(slist_buffer, content.c_str());
-        }
-
-        return CURLsListType(slist_buffer, curl_slist_free_all);
-    }
 }
 
 #endif //CPPREQUESTS_PREPARED_REQUEST_H

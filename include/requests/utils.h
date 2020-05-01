@@ -4,6 +4,7 @@
 #include <cstring>
 #include <map>
 #include <algorithm>
+#include <numeric>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
@@ -38,21 +39,19 @@ inline auto expose(typename std::add_lvalue_reference_t<typename std::add_const_
 _EXPOSE_SETTER(expose, member, type)
 
 
-namespace crq {
+namespace crq::utils {
 
-    namespace utils {
+    std::string _parse_content_type_header(const std::string& header) {
 
-        std::string _parse_content_type_header(const std::string& header) {
+    }
 
+    inline std::string get_encoding_from_headers(const HeaderMap& headers) {
+
+        if (headers.find("content-type") == headers.end()) {
+            return "";
         }
 
-        inline std::string get_encoding_from_headers(const HeaderMap& headers) {
-
-            if (headers.find("content-type") == headers.end()) {
-                return "";
-            }
-
-            const auto content_type = headers.at("content-type");
+        const auto content_type = headers.at("content-type");
 
 //            def _parse_content_type_header(header):
 //            """Returns content type and parameters from given header
@@ -79,80 +78,64 @@ namespace crq {
 //            return content_type, params_dict
 
 
-        }
-
-        inline std::string default_user_agent(const std::string &name = "cpp-requests") {
-            return fmt::format("{0}/{1}", name, "1.0.0");
-        }
-
-        inline crq::HeaderMap default_headers() {
-            return {
-                    {"User-Agent",      default_user_agent()},
-                    {"Accept-Encoding", "gzip, deflate"},
-                    {"Accept",          "*/*"},
-                    {"Accept-Language", "zh-CN,zh;q=0.8"},
-                    {"Connection",      "keep-alive"}
-            };
-        }
-
-        inline crq::HeaderMap merge_headers(const crq::HeaderMap &new_header,
-                                            const crq::HeaderMap &inner_header) {
-            auto buf = HeaderMap(inner_header.begin(), inner_header.end());
-
-            for (auto &item: new_header) {
-                buf[item.first] = item.second;
-            }
-
-            return buf;
-        }
-
-
     }
 
-    namespace string {
+    inline std::string default_user_agent(const std::string& name = "cpp-requests") {
+        return name + "/" + "1.0.0";
+    }
 
-        inline std::string& upper(std::string &s) {
-            std::transform(s.cbegin(), s.cend(), s.begin(), ::toupper);
-            return s;
+    inline crq::HeaderMap default_headers() {
+        return {
+                {"User-Agent",      default_user_agent()},
+                {"Accept-Encoding", "gzip, deflate"},
+                {"Accept",          "*/*"},
+                {"Accept-Language", "zh-CN,zh;q=0.8"},
+                {"Connection",      "keep-alive"}
+        };
+    }
+
+    template<char KV, char KS>
+    inline std::string params_encode(const ParamsMap& params) {
+        using ele = std::map<std::string, std::string>;
+
+        auto size = 0;
+
+        for (auto& r: params) {
+            size += r.first.size() + r.second.size() + 2;
         }
 
-        inline std::string upper(const std::string &s) {
-            std::string buf;
-            buf.resize(s.size());
-            std::transform(s.cbegin(), s.cend(), buf.begin(), ::toupper);
-            return buf;
+        std::string buf;
+        buf.reserve(size);
+
+        auto head = buf.begin();
+
+        for (auto& r: params) {
+            std::copy(r.first.cbegin(), r.first.cend(), head);
+            head += r.first.size();
+
+            *head = KV;
+            head += 1;
+
+            std::copy(r.second.cbegin(), r.second.cend(), head);
+            head += r.second.size();
+
+            *head = KS;
+            head += 1;
         }
 
-        inline std::string& lower(std::string &s) {
-            std::transform(s.cbegin(), s.cend(), s.begin(), ::tolower);
-            return s;
+        buf.erase(buf.end() - 1);
+        return buf;
+    }
+
+    inline crq::HeaderMap merge_headers(const crq::HeaderMap& new_header,
+                                        const crq::HeaderMap& inner_header) {
+        auto buf = HeaderMap(inner_header.begin(), inner_header.end());
+
+        for (auto& item: new_header) {
+            buf[item.first] = item.second;
         }
 
-        inline std::string lower(const std::string &s) {
-            std::string buf;
-            buf.resize(s.size());
-            std::transform(s.cbegin(), s.cend(), buf.begin(), ::tolower);
-            return buf;
-        }
-
-        inline std::pair<const char*, const char*> char_strip(const char* start, const char* end) {
-            auto head = start;
-            auto tail = end;
-
-            auto checker = [](char s) -> bool { return (s == '\n') || (s == '\r') || (s == ' '); };
-
-            while (checker(*head)) { head++; }
-            do { tail--; } while (checker(*tail));
-
-            return {head, tail + 1};
-        }
-
-        inline std::vector<std::string> simple_split(const std::string& content, const char* d) {
-            const auto pos = content.find(d);
-
-
-
-        }
+        return buf;
     }
 }
 

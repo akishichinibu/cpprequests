@@ -1,32 +1,28 @@
 #ifndef CPPREQUESTS_STREAM_H
 #define CPPREQUESTS_STREAM_H
 
-#include <cstring>
 
 namespace crq {
 
     class StreamBuffer {
 
     private:
-        Request &_handler;
+        Request& _handler;
 
-        HeaderMap header_buffer;
-        std::string body_buffer;
+        HeaderMap _header;
+        std::string _body;
 
         bool pass_header = false;
         bool _consumed = false;
 
     public:
-        explicit StreamBuffer(Request &handler) : _handler(handler) {
-            this->body_buffer.reserve(1024);
+        explicit StreamBuffer(Request& handler) : _handler(handler) {
+            this->_body.reserve(1024);
         }
 
-        static std::size_t write_callback(void *contents,
-                                          std::size_t size,
-                                          std::size_t nmemb,
-                                          void *userdata) {
+        static std::size_t write_callback(void* contents, std::size_t size, std::size_t nmemb, void* userdata) {
             // 转换缓冲区指针为StreamBuffer*
-            auto buffer = (StreamBuffer*)(userdata);
+            auto buffer = (StreamBuffer*) (userdata);
 
             // 计算缓冲区内数据长度
             const std::size_t content_length = size * nmemb;
@@ -43,18 +39,13 @@ namespace crq {
             }
 
             // 将数据追加至缓冲区内
-            buffer->body_buffer.append(char_contents, content_length);
+            buffer->_body.append(char_contents, content_length);
             return content_length;
         }
 
-        static std::size_t header_callback(void *contents,
-                                           std::size_t size,
-                                           std::size_t nmemb,
-                                           void *userdata) {
-
+        static std::size_t header_callback(void* contents, std::size_t size, std::size_t nmemb, void* userdata) {
             const std::size_t content_length = size * nmemb;
-
-            auto convert_userdata = (HeaderMap*)(userdata);
+            auto convert_userdata = (HeaderMap*) (userdata);
 
             auto char_content = (char*) contents;
 
@@ -65,14 +56,15 @@ namespace crq {
             const auto split_pos = strchr(char_content, ':');
 
             if (split_pos != nullptr) {
-                const char *key_head, *key_end;
-                std::tie(key_head, key_end) = string::char_strip(char_content, split_pos);
+                auto key = std::string{
+                        std::string_view(char_content, std::distance(char_content, split_pos))
+                        | string::strip(HEADER_DELIMITER)
+                };
 
-                const char *value_head, *value_end;
-                std::tie(value_head, value_end) = string::char_strip(split_pos + 1, char_content + content_length);
-
-                const auto key = std::string(key_head, key_end);
-                const auto value = std::string(value_head, value_end);
+                auto value = std::string{
+                        std::string_view(split_pos + 1, std::distance(split_pos + 1, char_content + content_length))
+                        | string::strip(HEADER_DELIMITER)
+                };
 
                 convert_userdata->operator[](key) = value;
             }
@@ -80,9 +72,9 @@ namespace crq {
             return content_length;
         }
 
-        EXPOSE_REF_GETTER(header, header_buffer, HeaderMap);
+        EXPOSE_REF_GETTER(header, _header, HeaderMap);
 
-        EXPOSE_REF_GETTER(body, body_buffer, std::string);
+        EXPOSE_REF_GETTER(body, _body, std::string);
 
         ALLOW_MODIFY_PROPERTY(consumed, _consumed, bool);
     };

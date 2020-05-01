@@ -9,12 +9,49 @@
 
 #include "requests/structures.h"
 #include "requests/utils.h"
-#include "requests/exception.h"
+#include "requests/extends/_string.h"
 
 
 namespace crq {
 
-    class URL {
+    class libCURLUrlHandleMixin {
+    public:
+
+        inline static void _curl_url_set(CURLUptrType& handler,
+                                         CURLUPart part,
+                                         const char* content,
+                                         unsigned int flags) {
+            const auto res = curl_url_set(handler.get(), part, content, flags);
+
+            if (res != CURLUE_OK) {
+                const auto err = curl::LIBCURL_URL_CODE.at(res);
+                throw std::runtime_error(err.c_str());
+            }
+        }
+
+        inline static void _curl_url_set(CURLUptrType& handler,
+                                         CURLUPart part,
+                                         const std::string& content,
+                                         unsigned int flags) {
+            return _curl_url_set(handler, part, content.c_str(), flags);
+        }
+
+        inline static CURLCptrType _curl_url_get(CURLUptrType& handler,
+                                                 CURLUPart part,
+                                                 unsigned int flags) {
+            char* buf;
+            const auto res = curl_url_get(handler.get(), part, &buf, flags);
+
+            if (res != CURLUE_OK) {
+                curl_free(buf);
+                return CURLCptrType(nullptr, curl_free);
+            }
+
+            return CURLCptrType(buf, curl_free);
+        }
+    };
+
+    class URL : libCURLUrlHandleMixin {
 
     private:
         std::string _scheme;
@@ -27,86 +64,7 @@ namespace crq {
         ParamsMap _params;
         std::string _fragment;
 
-        inline static void _curl_url_set(CURLUptrType &handler,
-                                         CURLUPart part,
-                                         const char *content,
-                                         unsigned int flags) {
-            const auto res = curl_url_set(handler.get(), part, content, flags);
-
-            if (res != CURLUE_OK) {
-                const auto err = curl::LIBCURL_URL_CODE.at(res);
-                throw std::runtime_error(err.c_str());
-            }
-        }
-
-        inline static void _curl_url_set(CURLUptrType &handler,
-                                         CURLUPart part,
-                                         const std::string &content,
-                                         unsigned int flags) {
-            return _curl_url_set(handler, part, content.c_str(), flags);
-        }
-
-        inline static CURLCptrType _curl_url_get(CURLUptrType &handler,
-                                                 CURLUPart part,
-                                                 unsigned int flags) {
-            char *buf;
-            const auto res = curl_url_get(handler.get(), part, &buf, flags);
-
-            if (res != CURLUE_OK) {
-                curl_free(buf);
-                return CURLCptrType(nullptr, curl_free);
-            }
-
-            return CURLCptrType(buf, curl_free);
-        }
-
-        inline static URL parse_from_string(const std::string &s) {
-            auto h = curl_url();
-
-            if (h == nullptr) {
-                throw exception::InvalidURL("Exception when libcurl parse the url. ");
-            }
-
-            auto handler = CURLUptrType(h, curl_url_cleanup);
-
-            URL::_curl_url_set(handler,
-                               CURLUPART_URL,
-                               s.c_str(),
-                               CURLU_NON_SUPPORT_SCHEME);
-
-            auto scheme = URL::_curl_url_get(handler, CURLUPART_SCHEME, 0);
-
-            const std::string scheme_str = string::lower(std::string{scheme.get()});
-
-            const auto host = URL::_curl_url_get(handler, CURLUPART_HOST, 0);
-
-            const std::string host_str = string::lower(std::string{host.get()});
-
-            auto get_or_empty = [](const CURLCptrType &ptr) -> std::string {
-                std::string buf;
-                if (ptr != nullptr) {
-                    buf = ptr.get();
-                }
-                return buf;
-            };
-
-            const auto port = get_or_empty(URL::_curl_url_get(handler, CURLUPART_PORT, 0));
-
-            const unsigned short port_num = port.empty() ? 0 : static_cast<unsigned short>(std::stol(port));
-
-            const auto path = get_or_empty(URL::_curl_url_get(handler, CURLUPART_PATH, 0));
-
-            const auto fragment = get_or_empty(URL::_curl_url_get(handler, CURLUPART_FRAGMENT, 0));
-
-            auto u = URL(scheme_str, host_str, port_num, path, fragment);
-
-            const auto query_str = get_or_empty(URL::_curl_url_get(handler, CURLUPART_QUERY, 0));
-
-            u.params(parse_queries(query_str));
-            return u;
-        }
-
-        inline static ParamsMap parse_queries(const std::string &qstr) {
+        inline static ParamsMap parse_queries(const std::string& qstr) {
             if (qstr.empty()) {
                 return {};
             }
@@ -146,37 +104,58 @@ namespace crq {
             return kvs;
         }
 
-        [[nodiscard]] inline std::string build_raw_query() const {
-            std::string buf;
-
-            if (!this->_params.empty()) {
-                buf.reserve(10 * this->_params.size());
-
-                for (auto &item: this->_params) {
-                    const auto part = fmt::format("{0:s}={1:s}&", item.first, item.second);
-                    buf += part;
-                }
-
-                buf.erase(buf.size() - 1, 1);
-            }
-
-            return buf;
-        }
-
     public:
         URL(std::string scheme,
             std::string host,
             unsigned short port,
             std::string path,
-            std::string fragment="") :
+            std::string fragment = "") :
                 _scheme(std::move(scheme)),
                 _host(std::move(host)),
                 _port(port),
                 _path(std::move(path)),
                 _fragment(std::move(fragment)) {};
 
-        explicit inline URL(const std::string &url_str) {
-            *this = std::move(URL::parse_from_string(url_str));
+        explicit inline URL(const std::string& url_str) {
+            auto h = curl_url();
+
+            if (h == nullptr) {
+                throw std::invalid_argument("Exception when libcurl parse the url. ");
+            }
+
+            auto handler = CURLUptrType(h, curl_url_cleanup);
+
+            URL::_curl_url_set(handler, CURLUPART_URL, url_str.c_str(), CURLU_NON_SUPPORT_SCHEME);
+
+            auto scheme = std::string{URL::_curl_url_get(handler, CURLUPART_SCHEME, 0).get()} | string::lower();
+
+            auto host = std::string{URL::_curl_url_get(handler, CURLUPART_HOST, 0).get()} | string::lower();
+
+            auto get_or_empty = [](const CURLCptrType& ptr) -> std::string {
+                if (ptr != nullptr) {
+                    return std::string(ptr.get());
+                } else {
+                    return std::string();
+                }
+            };
+
+            const auto port = get_or_empty(URL::_curl_url_get(handler, CURLUPART_PORT, 0));
+
+            const unsigned short port_num = port.empty() ? 0 : static_cast<unsigned short>(std::stol(port));
+
+            const auto path = get_or_empty(URL::_curl_url_get(handler, CURLUPART_PATH, 0));
+
+            const auto fragment = get_or_empty(URL::_curl_url_get(handler, CURLUPART_FRAGMENT, 0));
+
+            const auto query_str = get_or_empty(URL::_curl_url_get(handler, CURLUPART_QUERY, 0));
+
+            this->_scheme = scheme;
+            this->_host = host;
+            this->_port = port_num;
+            this->_path = path;
+            this->_fragment = fragment;
+
+            this->params(parse_queries(query_str));
         }
 
         explicit operator std::string() {
@@ -184,7 +163,7 @@ namespace crq {
         }
 
         [[nodiscard]] inline std::string request_uri() const {
-            std::string buf = fmt::format("{0:s}://{1:s}", this->_scheme, this->_host);
+            std::string buf = this->_scheme + "://" + this->_host;
             buf.reserve(buf.size() * 2);
 
             if (this->_port > 0) {
@@ -195,14 +174,14 @@ namespace crq {
                 buf += this->_path;
             }
 
-            const auto query_str = this->raw_query();
+            const auto query_str = this->query_string();
 
             if (!query_str.empty()) {
-                buf += fmt::format("?{0:s}", query_str);
+                buf += "?" + query_str;
             }
 
             if (!this->_fragment.empty()) {
-                buf += fmt::format("#{0:s}", this->_fragment);
+                buf += "#" + this->_fragment;
             }
 
             return buf;
@@ -220,8 +199,21 @@ namespace crq {
 
         ALLOW_MODIFY_PROPERTY(params, _params, ParamsMap);
 
-        [[nodiscard]] inline std::string raw_query() const {
-            return this->build_raw_query();
+        [[nodiscard]] inline std::string query_string() const {
+            std::string buf;
+
+            if (!this->_params.empty()) {
+                buf.reserve(10 * this->_params.size());
+
+                for (auto& item: this->_params) {
+                    const auto part = item.first + "=" + item.second + "&";
+                    buf += part;
+                }
+
+                buf.erase(buf.size() - 1, 1);
+            }
+
+            return buf;
         }
     };
 };

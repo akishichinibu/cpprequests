@@ -1,12 +1,8 @@
 #include <gtest/gtest.h>
-
 #include "requests/models/session.h"
-
 
 TEST(TEST_CPPREQUESTS, TEST_HTTP_GET_1) {
     const std::string url = "http://jsonplaceholder.typicode.com/todos/1";
-
-    auto kk = crq::URL {url};
     auto req = crq::Request("GET", url);
 
     auto session = crq::Session();
